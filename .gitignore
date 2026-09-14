@@ -21,7 +21,7 @@ env/
 .env.*
 
 # Datasets and generated artifacts
-data/
+data/assist17.csv
 checkpoints/
 logs/
 outputs/
@@ -30,6 +30,7 @@ outputs/
 *.params
 *.pkl
 *.zip
+!data/**/*.pkl
 
 # Generated experiment outputs
 experiments/**/outputs/
