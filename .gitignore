@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Datasets and generated artifacts
+data/
+checkpoints/
+logs/
+outputs/
+*.pt
+*.pth
+*.params
+*.pkl
+*.zip
+
+# Generated experiment outputs
+experiments/**/outputs/
+experiments/**/params/
+experiments/**/ablation_results*/
+experiments/**/case_study_outputs*/
+experiments/**/hp_results/
+experiments/**/hp_originals_backup/
+experiments/**/paper_figures_output_v2/
+experiments/KCD/Alignment/dataset/
+
+# LaTeX build products
+paper/.build/
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.out
+*.synctex.gz
+*.toc

@@ -1,0 +1,1 @@
+import os,json; content=json.load(open(r''D:\12487\NCDM PLUS2\experiments\ncdm\_script.json'',''r'',encoding=''utf-8'')); open(r''D:\12487\NCDM PLUS2\experiments\ncdm\case_study_equation_trace.py'',''w'',encoding=''utf-8'').write(content[0]); print('Written:',len(content[0]),'bytes')

@@ -1,0 +1,783 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[table]{xcolor} 
+\usepackage{xcolor}
+\usepackage{bm}
+% Note: The titlesec package has been completely removed to avoid LLNCS template conflicts.
+
+\def\mymethod{FCD}
+\definecolor{mybgc}{rgb}{0.9, 0.9, 0.9} % 定义我的绿色作为表格底色
+\definecolor{myred}{RGB}{255,0,0}   % 自定义红色
+\definecolor{mygreen}{RGB}{0,128,0} % 自定义绿色
+\newcommand{\redbf}[1]{\textcolor{myred}{\textbf{#1}}} % 红色粗体
+\newcommand{\green}[1]{\textcolor{mygreen}{#1}}       % 绿色文本
+
+\titlerunning{\mymethod: A Multi-Task Learning Framework}
+
+\begin{document}
+
+\title{\mymethod: A Multi-Task Learning Framework for Jointly Modeling Cognitive Mastery and Behavioral Fluency}
+
+\author{}
+\institute{}
+
+% \author{
+% Lianhong Wang\inst{1}$^{\dagger}$ \and
+% Guiyao Liu\inst{1}$^{\dagger}$ \and
+% Xiaoyao Li\inst{2}$^{*}$ \and
+% Junyi Li\inst{1} \and
+% Xiaogang Zhang\inst{1} \and
+% Xiang Yin\inst{1}
+% }
+
+% \authorrunning{L. Wang et al.}
+
+% \institute{
+% College of Electrical and Information Engineering, Hunan University, Changsha 410082, China\\
+% \and
+% School of Advanced Interdisciplinary Studies, Central South University of Forestry and Technology, Changsha 410004, China\\
+% \email{lxy0731@csuft.edu.cn}\\
+% }
+
+\maketitle              
+
+% \begingroup
+% \renewcommand{\thefootnote}{\fnsymbol{footnote}}
+% \footnotetext[0]{$\dagger$ These authors contributed equally to this work.}
+% \footnotetext[0]{$*$ Corresponding author.}
+% \endgroup
+
+% ==============================================================================
+% ABSTRACT
+% ==============================================================================
+\begin{abstract}
+Cognitive Diagnosis Models (CDMs) are pivotal in Intelligent Tutoring Systems for evaluating students' latent knowledge states from historical learning interactions. 
+However, traditional CDMs predominantly focus on a singular dimension of cognitive mastery, inherently neglecting the complex behavioral dynamics that accompany the learning process. 
+By conflating a lack of problem-solving procedural fluency or incidental slips with a profound lack of fundamental knowledge, existing models often produce biased, coarse-grained, and pedagogically misleading diagnostic reports. 
+To address this critical issue, we propose \mymethod\, a novel Multi-Task Learning (MTL) framework that explicitly decouples students' cognitive profiles into independent \textit{Mastery} and \textit{Fluency} dimensions. 
+Specifically, our model introduces a secondary behavioral module driven by key proxy features, including learning opportunity, accuracy prior, and response stability. 
+Furthermore, to prevent static feature entanglement, we design an intelligent dynamic fusion gate mechanism that self-adaptively calibrates the impact of cognitive mastery and behavioral fluency based on distinct exercise traits. 
+Extensive experiments conducted on six real-world benchmark datasets demonstrate the universal superiority of \mymethod\ in prediction accuracy. 
+Furthermore, in-depth interpretability analyses reveal that our framework provides granular, actionable, and multidimensional insights into student learning behaviors, effectively mitigating the risk of redundant pedagogical interventions.
+
+\keywords{Cognitive Diagnosis \and Multi-Task Learning \and Behavioral Dynamics \and Educational Data Mining \and Interpretability.}
+\end{abstract}
+
+% ==============================================================================
+% 1. INTRODUCTION
+% ==============================================================================
+\section{Introduction}
+
+Cognitive diagnosis is a fundamental task in educational data mining that aims to evaluate students' latent cognitive states based on their historical learning interactions and assessment records, as shown in Figure \ref{def:cd}. 
+As a core driving mechanism of intelligent tutoring systems and massive open online courses, Cognitive Diagnosis Models (CDMs) provide essential quantitative support for personalized learning recommendations, adaptive testing, and intelligent curriculum design \cite{thai2010recommender}. 
+
+Cognitive diagnosis research has evolved from traditional psychometric models to machine learning-based approaches, and more recently to paradigms based on deep learning. 
+Psychometric-based models \cite{fan1998item,linden2000computerized,reckase2009multidimensional,delatorre2009dina} provide strong theoretical interpretability through explicit statistical modeling of cognitive states, but fail to capture complex learning dynamics due to rigid parametric assumptions. 
+Learning latent cognitive states from historical interaction logs in a data-driven manner, machine learning-based models \cite{MF,SVM,FuzzyCDF} typically rely on manually designed features and shallow architectures, whereas deep learning-based models \cite{wang2020neural,wang2022neuralcd,zhang2025cognitive} also leverage neural networks to automatically capture complex, non-linear dependencies.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth, trim={10 60 10 80}, clip]{cd.pdf}
+\caption{The flowchart of cognitive diagnosis.}
+\label{fig:cd}
+\end{figure}
+
+Despite continued algorithmic advances, most existing CDMs face notable limitations in practice. Their diagnoses rely almost exclusively on binary correctness logs, reducing cognitive states to a singular dimension of cognitive state, commonly referred to as knowledge mastery, while overlooking the rich behavioral dynamics inherent in the learning process. However, pedagogy and cognitive psychology \cite{smith1994misconceptions} distinguish declarative knowledge (i.e., knowing a concept) from procedural knowledge (i.e., fluently solving a problem) as qualitatively distinct cognitive dimensions. Therefore, conflating a lack of fluency with a lack of mastery inevitably leads to biased diagnostic outcomes. For example, a student may make a careless slip despite understanding fraction addition rules, and CDMs could not only misdiagnose this as non-mastery, but even trigger unnecessary interventions.
+
+% Despite these algorithmic advancements, existing CDMs often face a critical bottleneck when deployed in real-world educational scenarios: they predominantly rely on binary correctness logs (i.e., whether a question was answered right or wrong) to estimate a singular, entangled dimension of cognitive state, commonly referred to as \textit{Knowledge Mastery}. 
+% Consequently, they structurally overlook the rich behavioral dynamics underlying the human learning process, such as problem-solving fluency, response stability over time, and incidental cognitive slips \cite{wang2024boosting,zhang2025cognitive}. 
+
+% From a pedagogical and cognitive psychology perspective, "knowing a concept" (declarative knowledge) and "fluently solving a problem" (procedural knowledge) are distinctly different cognitive dimensions \cite{smith1994misconceptions}. 
+% By conflating a "lack of fluency" with a "lack of mastery," traditional models tend to produce biased diagnostic reports. 
+% For instance, a student who fundamentally understands the abstract rules of fraction addition but makes a careless computational slip due to a low practice volume might be erroneously diagnosed by a standard NCDM as completely "unmastered" in the core concept. 
+% Such misdiagnoses inevitably lead to redundant pedagogical interventions, forcing students to re-watch basic theoretical lectures when all they truly need is targeted procedural practice to build muscle memory. 
+% Therefore, explicitly decoupling a student's cognitive state into distinct \textit{Mastery} and \textit{Fluency} dimensions is imperative for precise and high-resolution cognitive diagnosis.
+
+% To directly address these challenges, we propose \textbf{\mymethod}, a novel Multi-Task Learning (MTL) framework designed to jointly model cognitive mastery and behavioral fluency. 
+% Our framework explicitly extracts and integrates behavioral proxy features to capture nuanced learning dynamics and employs an adaptive gating mechanism to dynamically fuse these dual states. 
+% Specifically, \mymethod\ constructs a secondary, independent behavioral module driven by three crucial mathematical proxy features: learning opportunity (the historical exposure rate to a specific concept), accuracy prior (historical correctness ratio reflecting empirical competence), and response stability (the statistical variance in student performance representing guessing or slipping). 
+
+% Furthermore, to dynamically integrate these features without suffering from the rigidity of static concatenation, we introduce an item-aware dynamic fusion gate mechanism. 
+% Rather than applying a fixed weight to behavioral features across all exercises indiscriminately, the gate self-adaptively evaluates the specific mathematical traits (difficulty and discrimination) of each given exercise. 
+% It dynamically calibrates the residual weights, allowing the model to rely heavily on the procedural fluency branch for repetitive, low-difficulty calculation tasks, while reverting to the fundamental mastery branch for complex, highly conceptual word problems.
+
+To address these issues, we propose \textbf{\mymethod}, a general framework designed to extend existing methods by naturally incorporating behavioral fluency into cognitive diagnosis to improve their performance. Our main contributions are summarized as follows:
+\begin{itemize}
+    \item We propose \mymethod\, a novel MTL-based cognitive diagnosis framework that explicitly decouples students' cognitive profiles into interpretable \textit{Mastery} and \textit{Fluency} dimensions, successfully bridging the gap between deep representation learning and educational psychology.
+    \item {\color{blue}Our proposed \mymethod\ has high extendibility with existing CD methods, which easily improves previous CD studies that only model student-exercise interaction in a natural way.}
+    \item We structurally formalize three mathematical proxy features (Opportunity, Accuracy Prior, Stability) and design an intelligent dynamic fusion gate mechanism. This plug-and-play architectural extension prevents deep networks from overfitting to non-cognitive anomalous slips.
+    \item Extensive evaluations on six benchmark datasets with various CDM baselines clearly demonstrate the rationale and effectiveness of our \mymethod.
+\end{itemize}
+
+
+% ==============================================================================
+% 2. RELATED WORK
+% ==============================================================================
+\section{Related Work}
+
+\subsection{Psychometrics-based CDMs}
+Traditional psychometric-based CDMs can be categorized into ability-level and cognition-level paradigms. The ability-level paradigm focuses on macro-level holistic evaluation, modeling a student's overall ability as a continuous latent trait to predict response probability, without explicitly diagnosing specific knowledge components. Examples include Item Response Theory (IRT) \cite{fan1998item} and its multidimensional extension (MIRT) \cite{reckase2009multidimensional}, which characterize exercises via parameters such as discrimination, difficulty and guessing. In contrast, the cognition-level paradigm adopts a micro-level diagnostic perspective, modeling a student's knowledge state as a fine-grained binary attribute vector (i.e., mastered or not mastered) over specific knowledge concepts, as defined by the Q-matrix. For example, the Deterministic Input, Noisy "And" gate (DINA) model ~\cite{delatorre2009dina,delatorre2011generalized} assumes that a correct response requires mastery of all concepts associated with the exercise.
+
+Despite their theoretical interpretability, these traditional CDMs are often too rigid to capture complex and non-linear learning trajectories, and their parametric assumptions further constrain adaptability to high-dimensional interaction data.  
+
+% The ability level paradigm is exemplified by Item Response Theory (IRT)\cite{fan1998item} and its multidimensional extension (MIRT)\cite{reckase2009multidimensional}, focuses on macro-level holistic evaluation. It aims to answer the question of "how strong is this student's overall ability" by modeling the probability of a correct response through a continuous latent ability variable. Parameters such as discrimination, difficulty, and guessing capture item characteristics, yet the output remains a global proficiency score without delving into specific knowledge structures. In contrast, the cognition level paradigm adopts a micro-level diagnostic perspective, addressing the more fundamental question: "Which specific knowledge points or skills has this student mastered, and where do the gaps remain?" The DINA model exemplifies this approach by representing a student's knowledge state as a binary attribute mastery vector, and explicitly employs a Q-matrix to specify the exact combination of skills required for each item. This fine-grained, attribute-level diagnosis provides actionable insights for targeted remediation, moving beyond the one-dimensional ability scores of traditional IRT frameworks.
+
+% Cognitive Diagnosis Models (CDMs) have long been the cornerstone of personalized learning systems, designed to infer students' multidimensional latent traits from observable testing behaviors. 
+% Traditional psychometric approaches, such as Unidimensional and Multidimensional Item Response Theory (IRT, MIRT) \cite{fan1998item,reckase2009multidimensional}, along with cognitive diagnostic models like DINA \cite{delatorre2009dina}, typically rely on simple linear link functions or strict probabilistic mappings to model the interaction between student ability and item difficulty. 
+% While providing excellent statistical interpretability, these classical models are often too rigid to capture the complex, non-linear learning trajectories of modern online students.
+
+\subsection{Learning-based CDMs}
+In contrast to psychometrics-based models relying on strict theoretical assumptions, learning-based CDMs adopt a data-driven paradigm that directly learns latent cognitive states from historical interaction logs. These models are generally categorized into Machine Learning (ML)-based and Deep Learning (DL)-based approaches.
+
+Early ML-based CDMs draw inspiration from collaborative filtering and matrix factorization, including matrix factorization~\cite{MF} and its probabilistic variant~\cite{PMF}, both of which factorize the student-exercise response matrix into low-dimensional latent trait vectors. Beyond matrix factorization, \cite{SVM} applies support vector machine to classify mastery states via maximum-margin hyperplanes. \cite{FuzzyCDF} employs a fuzzy set-theoretic framework that models continuous knowledge proficiency levels to accommodate both dichotomous and partially scored items. More recently, \cite{MvCRF} enriches cognitive profiling by extracting an effort trait from interaction logs, and integrating it with ability traits and a knowledge weakness parameter within a compensation mechanism.
+
+
+DL-based CDMs leverage deep neural networks to automatically capture complex, non-linear interactions between students and exercises. 
+Neural CDM (NCDM)~\cite{wang2020neural} introduces a neural framework with non-negative layers to enforce educational monotonicity, ensuring both accuracy and interpretability.
+To address sparse knowledge coverage, Knowledge-association based extension of the Neural Cognitive Diagnosis model (KaNCD)~\cite{wang2022neuralcd} models concept associations via low-dimensional embeddings, while Knowledge Concept Cold-Start Cognitive Diagnosis model  (KCSCD)~\cite{zhang2026knowledge} targets concept cold-start via a gating-fused inference and ability module. 
+Beyond concept-level modeling, the attention mechanism has also been explored in cognitive diagnosis. For example, Cognitive Diagnosis with Nonlinear Dependence between students and exercises (CDND)~\cite{zhang2025cognitive} employs an attention-like mechanism to capture nonlinear dependence between specific student-exercise pairs. 
+% More recently, Large Language Model (LLM) have been introduced into this field. For instance, Knowledge-enhanced Cognitive Diagnosis (KCD)~\cite{dong2025knowledge} is a model-agnostic framework that leverages LLMs to generate textual diagnoses and aligns semantic and behavioral spaces via contrastive learning for improved performance in cold-start scenarios.
+
+% Models like the Neural Cognitive Diagnosis Model (NCDM)  and its generalized framework NeuralCD \cite{wang2022neuralcd} extract complex, non-linear interaction features while elegantly preserving diagnostic interpretability by enforcing monotonicity constraints through non-negative fully connected layers. 
+
+% Similarly, models like FuzzyCDF \cite{liu2018fuzzy} attempt to capture the inherent fuzziness and uncertainty of student mastery. 
+% Despite their remarkable success, these deep CDMs still predominantly rely on discrete binary correctness data. 
+% They inherently conflate a student's fundamental conceptual understanding with their procedural test-taking state, leaving a critical blind spot in high-resolution cognitive profiling.
+
+
+
+% \subsection{Behavioral Dynamics in Educational Data Mining}
+% In real-world e-learning environments, students generate a wealth of behavioral and temporal data far beyond mere correctness. 
+% % Recent literature in Knowledge Tracing (KT) has begun to explore auxiliary behavioral indicators \cite{piech2015deep}. 
+% For instance, Dynamic Cognitive Diagnosis models attempt to incorporate temporal priors and forgetting curves \cite{wang2023dynamic}.
+% % while other frameworks utilize anomalous learning interaction detection to enhance dataset robustness \cite{ma2024hd}. 
+% Studies have also successfully integrated students' affective states, emotional feedback, and response times to boost diagnostic accuracy \cite{wang2024boosting}. 
+
+% However, existing methodologies generally treat these temporal and behavioral signals as simple auxiliary inputs that are directly concatenated with cognitive embeddings before passing through a Multi-Layer Perceptron (MLP). 
+% From a cognitive perspective, this flat, static integration fails to theoretically decouple "Knowing" from "Doing" \cite{smith1994misconceptions}. 
+% A psychologically sound and highly interpretable framework requires explicitly encoding these historical behaviors into an independent latent procedural fluency state.
+
+% \subsection{Feature Fusion and Adaptive Gating Mechanisms}
+% Effectively combining multi-dimensional, heterogeneous features remains a persistent challenge in EDM. 
+% Recent advancements in explicit concept relation modeling and graph neural networks \cite{zhang2021gkt,su2022graph} have shown the immense benefits of structural priors. 
+% % Furthermore, models aiming for predictive, scalable, and interpretable tracing often rely on adaptive weighting \cite{zhou2024predictive,huang2024xkt}. 
+% Static fusion methods force the model to apply a rigid, unyielding set of weights to auxiliary features across all items, leading to severe feature entanglement. 
+% Implementing an adaptive gate network allows for the dynamic, item-specific weighting of fluency representations against mastery representations, ensuring that the diagnostic outcomes remain both highly accurate and profoundly explainable \cite{dong2025knowledge}.
+
+
+% ==============================================================================
+% 3. PROBLEM FORMULATION
+% ==============================================================================
+\section{Problem Formulation}
+
+Let $\mathcal{U} = \{u_1, u_2, \dots, u_N\}$ denote the set of $N$ students, and $\mathcal{E} = \{e_1, e_2, \dots, e_M\}$ denote the set of $M$ exercises, $\mathcal{C} = \{c_1, c_2, \dots, c_K\}$ denote the set of $K$ knowledge concepts, and  $\mathcal{R}=\{(u_i,e_j,r_{ij})\mid u_i\in\mathcal{U}, e_j\in\mathcal{E}\}$ denote the set of response records, where binary response $r_{ij}$ equals 0 for an incorrect answer or 1 for a correct answer. 
+The exercise-concept correlation matrix is encoded by a binary matrix named the Q-matrix, denoted as $\bm{Q}=[q_{jk}]_{M \times K}$. Specifically, $q_{jk}=1$ if concept $c_k$ is required to correctly answer item $e_j$, and $q_{jk}=0$ otherwise.
+
+\begin{definition}\label{def:cd}
+(Cognitive Diagnosis) Given the response records $\mathcal{R}$ and the Q-matrix $\bm{Q}$, cognitive diagnosis aims to estimate students' latent cognitive states from their interaction histories. These states are typically represented by knowledge proficiency $\alpha_{ik}$ of student $u_i \in \mathcal{U}$ on concept $c_k \in \mathcal{C}$, along with auxiliary item parameters such as difficulty and discrimination.
+\end{definition}
+
+\begin{definition}\label{def:dd}
+Difficulty and discrimination parameters characterize exercise properties with respect to students' latent cognitive states. The difficulty parameter quantifies the baseline success probability for an average-proficiency student, while the discrimination parameter measures how sensitively the success probability responds to changes in cognitive states.
+\end{definition}
+
+For each exercise $e_j\in\mathcal{E}$, its difficulty and discrimination parameters are denoted as $h_j^{diff}$ and $h_j^{disc}$ ($j=1,2,\cdots,M$), respectively.
+
+% During the learning process, students continuously interact with exercises. 
+% The historical interaction sequence of a student $u$ up to time step $T$ can be represented as a chronologically ordered set of tuples:
+% \begin{equation}
+%     \mathcal{X}_u = \{(e_1, a_1), (e_2, a_2), \dots, (e_T, a_T)\}
+% \end{equation}
+% where $e_t \in \mathcal{E}$ is the exercise attempted at time step $t$, and $a_t \in \{0, 1\}$ denotes the binary response correctness score ($1$ for correct, $0$ for incorrect).
+
+% \textbf{Objective:} Given the interaction history $\mathcal{X}_u$ of a student $u$ and the Q-matrix $Q$, the primary goal of a Cognitive Diagnosis Model is twofold:
+% 1. To accurately predict the probability $P(a_{T+1} = 1 \mid u, e_{T+1})$ that student $u$ will answer a new target exercise $e_{T+1}$ correctly.
+% 2. To infer an interpretable, multidimensional latent proficiency vector $h_u \in [0, 1]^K$, representing the student's mastery level over each specific knowledge concept in $\mathcal{K}$.
+
+
+% ==============================================================================
+% 4. METHODOLOGY
+% ==============================================================================
+\section{Methodology}
+
+The overall architecture of \mymethod\ is depicted in Figure \ref{fig:architecture}. The framework is systematically partitioned into three main, interconnected components: the Mastery Backbone (which captures traditional cognitive traits), the Behavioral Fluency Proxy (which encodes historical procedural states), and the Dynamic Fusion Gate (which adaptively bridges the two streams).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{333.png}
+\caption{The overall architecture of \mymethod\. The model processes inputs through a dual-stream design: the upper Mastery Backbone calculates fundamental cognitive competence via monotonicity-constrained layers, while the lower Behavioral Fluency Module extracts procedural familiarity. The two streams are adaptively merged via the Fusion Gate.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Mastery Backbone}
+Following the foundational mathematical design of the standard NCDM \cite{wang2020neural}, we first map discrete student IDs $u$ and exercise IDs $e$ to continuous latent embeddings. 
+These embeddings represent the student's conceptual cognitive proficiency ($h_u^S$) and specific exercise traits, namely exercise difficulty ($h_e^{diff}$) and exercise discrimination ($h_e^{disc}$). 
+
+According to the core monotonicity assumption of cognitive diagnosis (i.e., a higher student proficiency should monotonically increase the probability of a correct response across all items), we construct the knowledge interaction matrix $x_{mastery}$. 
+We utilize the exercise's predefined $Q$-matrix ($Q_e$) as a multi-hot mask to ensure that interactions strictly only occur on the concepts relevant to the specific question:
+\begin{equation}
+    x_{mastery} = h_e^{disc} \odot (h_u^S - h_e^{diff}) \odot Q_e
+\end{equation}
+where $\odot$ denotes the element-wise Hadamard product.
+
+To rigorously preserve this psychological assumption of monotonicity throughout the deep neural network transformations, we utilize a constrained \textit{PosLinear} layer where all transformation weights are strictly penalized to remain non-negative during backpropagation:
+\begin{equation}
+    W_{pos} = 2 \cdot \text{ReLU}(-W) + W
+\end{equation}
+The base conceptual mastery prediction logit $o_{logit}$ is subsequently generated by passing the interaction matrix $x_{mastery}$ through a multi-layer perceptron (MLP) constructed exclusively with these \textit{PosLinear} layers.
+
+\subsection{Behavioral Fluency Proxy Formulation}
+To effectively capture the procedural learning dynamics that traditional models ignore, we formalize four behavioral features extracted from the raw interaction logs of student $u$ on exercise $e$ at time $T$:
+
+\paragraph{Opportunity ($opp$).} The logarithmic cumulative encounter count with the target concept, preventing extreme values from dominating gradients:
+\begin{equation}
+    opp_{u, c}^{(T)} = \log \left( 1 + \sum_{t=1}^{T-1} \mathbb{I}(e_t \in \mathcal{C}_c) \right)
+\end{equation}
+
+\paragraph{Response Time ($rt$).} The raw response time in milliseconds. Longer response times typically indicate hesitation or lack of procedural fluency:
+\begin{equation}
+    \widetilde{rt} = -\log(1 + rt)
+\end{equation}
+
+\paragraph{Attempt Count ($att$).} The total number of attempts made on the exercise. Multiple attempts beyond the first suggest procedural difficulty:
+\begin{equation}
+    \widetilde{att} = -\log\bigl(1 + \max(0, attempt - 1)\bigr)
+\end{equation}
+
+\paragraph{Hint Count ($hint$).} The number of hints requested. Frequent hint usage indicates a lack of procedural fluency:
+\begin{equation}
+    \widetilde{hint} = -\log(1 + hint)
+\end{equation}
+
+These four behavioral signals are concatenated into a behavioral feature vector $B_u = [\widetilde{opp} \parallel \widetilde{rt} \parallel \widetilde{att} \parallel \widetilde{hint}]$. As visualized in Figure~\ref{fig:fluency_module}, a multi-layer behavioral encoder processes this vector to extract a high-dimensional latent fluency state $z \in \mathbb{R}^D$:
+\begin{equation}
+    z = \text{ReLU}(W_{beh} B_u + b_{beh})
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{222.png}
+\caption{The Behavioral Fluency Module. Four raw behavioral features (opportunity, response time, attempt count, hint count) are processed through logarithmic normalization and sign-based encoding, then passed through a multi-layer behavioral encoder to produce the latent fluency state $z$ and the scalar fluency score $flu$.}
+\label{fig:fluency_module}
+\end{figure}
+
+To explicitly decouple the procedural state and compute a final, interpretable continuous fluency score $flu \in (0,1)$, we introduce a student-specific fluency bias embedding $b_{stu}$ and map the representation via a Sigmoid-activated projection head:
+\begin{equation}
+    flu = \sigma(\text{MLP}_{flu}(z + \tanh(b_{stu})))
+\end{equation}
+
+\subsection{Multi-Task Learning and Dynamic Fusion}
+A significant mathematical challenge in dual-stream neural architectures is the risk of representation collapse, where the auxiliary behavioral encoder degenerates during end-to-end training if completely overshadowed by the primary binary cross-entropy loss. 
+To rigorously mitigate this, we employ a Multi-Task Learning (MTL) regularization strategy. We introduce auxiliary regression heads that force the latent state $z$ to faithfully reconstruct the original proxy statistical features. The total loss function $\mathcal{L}_{total}$ is balanced using a hyper-parameter $\lambda$:
+\begin{equation}
+    \mathcal{L}_{total} = \mathcal{L}_{y} + \lambda \cdot (\mathcal{L}_{opp} + \mathcal{L}_{acc} + \mathcal{L}_{sta})
+\end{equation}
+where $\mathcal{L}_{opp}, \mathcal{L}_{acc}, \mathcal{L}_{sta}$ are computed using Mean Squared Error (MSE) against the ground truth proxies.
+
+Finally, to address the profound rigidity of static feature concatenation commonly seen in prior works, a dynamic fusion gate (illustrated in Figure \ref{fig:gate_mechanism}) computes an adaptive weighting scalar $g \in (0,1)$. This gate processes the non-linear interaction between the behavioral latent state $z$ and the specific traits of the target exercise:
+\begin{equation}
+    g = \sigma(\text{MLP}_{gate}([z \parallel h_e^{diff} \parallel h_e^{disc}]))
+\end{equation}
+
+The final prediction probability $\hat{y}$ is calibrated by the gate via a mathematically interpretable residual correction mechanism applied to the core mastery logit:
+\begin{equation}
+    core' = o_{logit} + \gamma \cdot g \cdot (flu - 0.5) \cdot 4.0
+\end{equation}
+\begin{equation}
+    \hat{y} = \sigma(core')
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{111.png}
+\caption{The Dynamic Fusion Gate mechanism. It explicitly evaluates item characteristics to dynamically combine behavioral inputs with the core conceptual logit, executing an adaptive residual adjustment that prevents overconfidence.}
+\label{fig:gate_mechanism}
+\end{figure}
+
+In Equation 11, the term $(flu - 0.5)$ mathematically acts as a directional penalty or bonus. If a student is highly fluent ($flu > 0.5$), it provides a positive residual push to the core mastery logit, rewarding their procedural familiarity. Conversely, if procedural fluency is poor ($flu < 0.5$), it strictly penalizes the logit. Crucially, the item-aware gate activation $g$ determines the absolute \textit{magnitude} of this penalty, empowering the model to heavily rely on the fluency branch for routine procedural questions, while reverting strictly to the mastery branch for novel, complex conceptual problems.
+
+
+% ==============================================================================
+% 5. EXPERIMENTS
+% ==============================================================================
+\section{Experiments}
+
+In this section, we present comprehensive experimental results to validate the effectiveness of \mymethod, including comparison experiments, ablation study, hyperparameter sensitivity, and case study. 
+
+\subsection{Experimental Setup}
+
+\subsubsection{Datasets}
+All experiments are conducted on six public benchmark KT datasets, i.e. ASSIST09\footnote{\url{https://sites.google.com/site/assistmentsdata/home/assistment-2009-2010-data}}, 
+ASSIST17\footnote{\url{https://sites.google.com/view/assistmentsdatamining/dataset}}, 
+FrcSub\footnote{\url{http://staff.ustc.edu.cn/~qiliuql/data/math2015.rar}}, 
+Math1\footnotemark[3], Math2\footnotemark[3], and 
+Junyi\footnote{\url{https://base.ustc.edu.cn/data/tests/junyi/}}. Table~\ref{tab:datasets} summarizes statistics of each dataset, including the numbers of students, exercises, knowledge concepts, and interactions. These datasets present varying degrees of cognitive difficulty, spatial scale, and interaction sparsity, ensuring our evaluation is robust across completely different scenarios. 
+
+Among these six datasets, only ASSIST09 provides sufficient sequential information to explicitly compute the behavioral proxy features (i.e., $opp, acc, sta$) defined in Section 4.2, while the remaining five datasets lack such historical context. Therefore, this distinction yields two complementary evaluation settings, namely the \textbf{standard scenario} without explicit behavioral proxies and the \textbf{enriched scenario} with directly computable proxies from interactions. Specifically, each dataset is split into training (60\%), validation (10\%) and test (30\%) sets for the standard scenario, and training (80\%) and test (20\%) sets for the enriched scenario.
+
+% \begin{itemize}
+%     \item \textbf{ASSIST09 \& ASSIST17:} Collected from the famous ASSISTments platform, containing dense logs of middle school mathematics. These serve as the absolute gold standards for KT evaluation due to their highly reliable, expert-labeled skill tags.
+%     \item \textbf{Junyi:} A large-scale e-learning dataset collected from the Junyi Academy (a prominent Chinese educational platform). It comprises over 218K interactions covering extremely coarse-grained mathematical concepts, ideal for evaluating model scalability on massive MOOC platforms.
+%     \item \textbf{FrcSub, Math1, \& Math2:} These represent much smaller-scale, highly specialized learning trajectories. For instance, FrcSub (Fraction Subtraction) is a classic cognitive diagnosis dataset with only 8 core concepts. These highly sparse datasets pose severe overfitting risks for traditional deep models and serve as an excellent stress-test bed for our framework's regularization capabilities.
+% \end{itemize}
+
+% The detailed, holistic mathematical statistics of these datasets are summarized in Table \ref{tab:datasets}. Rigorous data preprocessing was conducted to remove invalid response records, deduplicate timestamps, and filter out students with fewer than three interaction logs to ensure the statistical validity of historical proxy feature calculations.
+
+\begin{table*}[h]
+\centering
+\caption{Comprehensive statistics of the benchmark datasets.}
+\label{tab:datasets}
+\setlength{\tabcolsep}{6pt}
+\renewcommand\arraystretch{0.9}
+\begin{tabular}{@{}l|rrrr@{}}
+\toprule
+\textbf{Dataset} & \#\textbf{Student} & \#\textbf{Exercise} & \#\textbf{Concept} & \#\textbf{Interaction} \\ \midrule
+ASSIST09(Table 2)         & 4,163             & 17,746             & 123               & $>$300K               \\
+ASSIST17         & 1,709             & 3,162              & 102               & $>$300K               \\
+Junyi            & 10,000            & 714                & 40                & $>$218K                  \\
+FrcSub           & 536               & 20                 & 8                 & $>$10K                \\
+Math1            & 4,209               & 20                 & 11                & $>$14K                 \\
+Math2            & 3,911               & 20                 & 16                & $>$19K                 \\ \bottomrule
+\end{tabular}
+\end{table*}
+
+\subsubsection{Baselines}
+We choose three psychometrics-based models, including IRT~\cite{fan1998item}, MIRT~\cite{reckase2009multidimensional} and DINA~\cite{delatorre2009dina,bigdata2021educdm},  as well as four DL-based models, namely NCDM~\cite{wang2020neural}, KaNCD~\cite{wang2022neuralcd}, CDND~\cite{zhang2025cognitive} and KCSCD~\cite{zhang2026knowledge}, as the baselines for the experiments. All baseline methods are implemented using their official configurations.
+
+\subsubsection{Evaluation Metrics}
+All methods are evaluated via four commonly-used metrics in KT field, including Area Under the ROC Curve (AUC), Accuracy (ACC), F1 Score (F1), and Root Mean Square Error (RMSE).
+% Following standard, rigorous conventions in Educational Data Mining, we evaluate model performance using four distinct mathematical metrics. 
+% Area Under the Receiver Operating Characteristic Curve (\textbf{AUC}) and Accuracy (\textbf{ACC}) are employed to assess the absolute binary classification performance. 
+% The \textbf{F1-score} provides a balanced harmonic mean of precision and recall, crucial for datasets with imbalanced pass/fail rates. 
+% Finally, Root Mean Square Error (\textbf{RMSE}) is calculated against the continuous probability predictions to gauge the absolute error margin, evaluating the model's confidence calibration.
+% \begin{equation}
+%     \text{RMSE} = \sqrt{\frac{1}{N} \sum_{i=1}^{N} (\hat{y}_i - y_i)^2}
+% \end{equation}
+
+\subsubsection{Implementation Details}
+\mymethod\ and all baseline models are implemented using the PyTorch deep learning library. All models are trained with the AdamW optimizer to prevent weight decay interference, with an initial learning rate dynamically selected from $\{0.001, 0.002, 0.005\}$ and a Cosine Annealing learning rate schedule for smooth convergence. A uniform dropout rate of $0.3$ is applied to all fully connected layers to strictly mitigate overfitting.
+All models are trained on NVIDIA RTX 4090 GPUs with a batch size of 256. We adopt an early stopping strategy with a patience of 5 epochs to determine the optimal stopping point and extract the best generalized weights.
+
+
+% The proposed framework and all baseline models are implemented using the PyTorch deep learning library. To ensure an absolutely fair, unbiased comparison, all models are trained using the AdamW optimizer to prevent weight decay interference. The initial learning rate is dynamically chosen from the set $\{0.001, 0.002, 0.005\}$, coupled with a Cosine Annealing learning rate schedule to facilitate smooth convergence. We apply a uniform dropout rate of $0.3$ to all fully connected layers to strictly mitigate overfitting. 
+
+% The models are trained on NVIDIA RTX 4090 GPUs with a batch size of 256. We employ a strict early stopping strategy with a patience threshold of 5 epochs, continuously monitored on the validation AUC, to determine the optimal stopping point and extract the best generalized weights. 
+
+
+% \begin{itemize}
+%     \item \textbf{Classical Psychometric Models:} . These models represent traditional unidimensional and multidimensional latent trait estimations via classical logistic functions.
+%     \item \textbf{Deep CDMs:} \textbf{NCDM} \cite{wang2020neural}, representing the paradigm shift to deep monotonic representation learning; \textbf{Neural-DINA} \cite{piech2015deep}, which blends classical DINA diagnostic logic with deep neural network feature extractors.
+%     \item \textbf{State-of-the-Art Architectures:} To reflect the very latest, cutting-edge advancements in the field, we include recent robust diagnostic networks published in 2025 and 2026. These include \textbf{KANCD} (utilizing Kolmogorov-Arnold Networks for superior mathematical function approximation) \cite{yang2025endowing}, \textbf{CDND} (Conditional Diffusion Neural Diagnosis) \cite{zhao2025multi}, \textbf{KCSCD} (Knowledge Concept Structured CD) \cite{zhang2026knowledge}, and \textbf{KCD} (Knowledge-based CD with multi-fact reasoning) \cite{liu2026knowledge}.
+% \end{itemize}
+
+% \textbf{Plug-and-Play Generality Extension (Our Core Contribution):} A fundamental hypothesis of our research is that behavioral fluency is an architectural necessity that transcends any single model's specific geometric design. Therefore, we deliberately abstracted our behavioral fluency mechanism into a \textit{plug-and-play} module and systematically integrated it into \textit{all} the aforementioned baseline models. In the subsequent experiments, models denoted with the suffix ``+fluency'' or ``+channel'' represent the enhanced variants explicitly engineered via our proposed dual-stream framework.
+
+\begin{table*}[!htpb]
+\centering
+\caption{Performance comparisons (\%) under standard scenario. $\Delta$ denotes the performance change of \mymethod\ over the baseline. \redbf{Red bold} and \green{green} indicate improvement and degradation, respectively. $\uparrow$/$\downarrow$ indicates that higher/lower is better.}
+\label{tab:comparison_exp1}
+\setlength{\tabcolsep}{2pt}
+\renewcommand\arraystretch{1.2}
+\resizebox{\textwidth}{!}{% 自适应页面宽度
+\begin{tabular}{cc|rrrr|rrrr|rrrr}
+\toprule
+\multicolumn{2}{c|}{\multirow{2}{*}{Model}} & \multicolumn{4}{c|}{ASSIST09} & \multicolumn{4}{c|}{ASSIST17} & \multicolumn{4}{c}{Junyi} \\
+\cmidrule(lr){3-14} 
+& & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ \\
+\midrule
+\multirow{3}{*}{IRT} & baseline & 69.47 & 70.46 & 81.71 & 45.39 & 77.64 & 82.14 & 89.85 & 35.64 & 67.81 & 75.28 & 85.44 & 41.95 \\
+                     & \mymethod\ & 71.05 & 69.80 & 79.35 & 44.49 & 89.61 & 86.60 & 92.01 & 30.45 & 80.38 & 79.87 & 87.60 & 37.98 \\
+                     & $\Delta$ & \redbf{1.20} & \redbf{0.77} & \green{-0.35} & \redbf{-0.53} & \redbf{11.97} & \redbf{4.46} & \redbf{2.16} & \redbf{-5.19} & \redbf{12.57} & \redbf{4.59} & \redbf{2.16} & \redbf{-3.97} \\
+\rowcolor{mybgc} 
+~ & baseline & 65.68 & 65.56 & 74.51 & 49.23 & 73.43 & 77.13 & 85.78 & 43.27 & 60.92 & 68.66 & 79.37 & 51.94 \\
+\rowcolor{mybgc}                       & \mymethod\ & 76.40 & 73.10 ~& 80.10 & 43.40 & 90.70 & 87.79 & 92.64 & 29.61 & 77.37 & 78.71 & 86.42 & 39.10 \\
+\rowcolor{mybgc}  \multirow{-3}{*}{MIRT}& $\Delta$ & \redbf{10.72} & \redbf{7.54} & \redbf{5.59} & \redbf{-5.83} & \redbf{17.27} & \redbf{10.66} & \redbf{6.86} & \redbf{-13.66} & \redbf{16.45} & \redbf{10.05} & \redbf{7.05} & \redbf{-12.84} \\
+\multirow{3}{*}{DINA} & baseline & 58.89 & 53.10 & 59.57 & 55.15 & 67.19 & 51.05 & 63.43 & 48.28 & 66.39 & 55.63 & 66.48 & 49.48 \\
+                        & \mymethod\ & 75.04 & 69.70 & 77.31 & 46.76 & 84.27 & 80.30 & 88.41 & 36.38 & 78.34 & 76.13 & 84.90 & 41.77 \\
+                        & $\Delta$ & \redbf{16.15} & \redbf{16.60} & \redbf{17.74} & \redbf{-8.39} & \redbf{17.08} & \redbf{29.25} & \redbf{24.98} & \redbf{-11.90} & \redbf{11.95} & \redbf{20.50} & \redbf{18.42} & \redbf{-7.71} \\
+\rowcolor{mybgc} & baseline & 75.22 & 71.75 & 78.65 & 43.77 & 87.64 & 84.98 & 91.02 & 31.83 & 80.77 & 79.76 & 87.11 & 37.76 \\
+\rowcolor{mybgc}                      & \mymethod\ & 76.93 & 73.67 & 81.46 & 42.30 & 89.49 & 86.80 & 92.25 & 30.39 & 82.29 & 80.57 & 87.95 & 37.37 \\
+\rowcolor{mybgc} \multirow{-3}{*}{NCDM}& $\Delta$& \redbf{1.71} & \redbf{1.92} & \redbf{2.81} & \redbf{-1.47} & \redbf{1.85} & \redbf{1.82} & \redbf{1.23} & \redbf{-1.44} & \redbf{1.52} & \redbf{0.81} & \redbf{0.84} & \redbf{-0.39}  \\
+\multirow{3}{*}{KaNCD} & baseline & 76.80 & 73.61 & 81.23 & 42.21 & 88.86 & 85.96 & 91.45 & 31.13 & 81.28 & 80.16 & 87.53 & 37.38 \\
+                       & \mymethod\ & 77.08 & 73.66 & 81.92 & 42.18 & 89.11 & 86.67 & 92.11 & 30.45 & 81.97 & 80.05 & 87.80 & 37.35 \\
+                       & $\Delta$ & \redbf{0.28} & \redbf{0.05} & \redbf{0.69} & \redbf{-0.03} & \redbf{0.25} & \redbf{0.71} & \redbf{0.66} & \redbf{-0.68} & \redbf{0.69} & \green{-0.11} & \redbf{0.27} & \redbf{-0.03}\\
+\rowcolor{mybgc}& baseline & 70.09 & 68.55 & 77.46 & 45.17 & 91.50 & 88.41 & 92.99 & 28.68 & 81.32 & 80.56 & 87.85 & 37.21 \\
+\rowcolor{mybgc}                      & \mymethod\ & 80.96 & 75.40 & 81.85 & 44.70 & 91.55 & 88.31 & 92.95 & 28.80 & 82.76 & 81.72 & 88.68 & 36.21 \\
+\rowcolor{mybgc}\multirow{-3}{*}{CDND} & $\Delta$ & \redbf{0.37} & \redbf{0.43} & \redbf{0.45} & \redbf{-0.08} & \redbf{0.05} & \green{-0.10} & \green{-0.04} & \green{0.12} & \redbf{1.44} & \redbf{1.16} & \redbf{0.83} & \redbf{-1.00} \\
+% \multirow{3}{*}{KCD} & baseline & 75.09 & 72.42 & 79.68 & 43.64 & 87.66 & 84.92 & 91.02 & 31.85 & 80.79 & 79.18 & 86.49 & 37.91 \\
+%                      & \mymethod\ & 76.69 & 72.49 & 79.14 & 42.85 & 89.39 & 86.64 & 92.02 & 30.55 & 82.34 & 80.75 & 87.81 & 36.96 \\
+%                      & $\Delta$ & \redbf{1.60} & \redbf{0.07} & \green{-0.54} & \redbf{-0.79} & \redbf{1.73} & \redbf{1.72} & \redbf{1.00} & \redbf{-1.30} & \redbf{1.55} & \redbf{1.57} & \redbf{1.32} & \redbf{-0.95} \\
+& baseline & 76.10 & 71.95 & 81.59 & 43.38 & 89.28 & 86.50 & 92.03 & 30.55 & 81.84 & 80.57 & 88.01 & 37.60 \\
+ & \mymethod\ & 76.51 & 71.64 & 81.60 & 42.44 & 90.03 & 86.99 & 92.30 & 30.15 & 82.00 & 80.67 & 87.96 & 37.28 \\
+\multirow{-3}{*}{KCSCD} & $\Delta$ & \redbf{0.41} & \green{-0.31} & \redbf{0.01} & \redbf{-0.94} & \redbf{0.75} & \redbf{0.49} & \redbf{0.27} & \redbf{-0.40} & \redbf{0.16} & \redbf{0.10} & \green{-0.05} & \redbf{-0.32} \\
+\midrule
+% 第一行表头：数据集名称
+& & \multicolumn{4}{c|}{Math1} & \multicolumn{4}{c|}{Math2} & \multicolumn{4}{c}{FrcSub} \\
+\cmidrule(lr){3-14}
+% 第二行表头：指标名称
+ & & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ \\
+\midrule
+% --- IRT Model ---
+\multirow{3}{*}{IRT} & baseline & 74.48 & 67.28 & 71.43 & 45.42 & 73.67 & 66.97 & 72.23 & 45.59 & 49.11 & 52.33 & 65.54 & 58.32 \\
+ & \mymethod\ & 79.91 & 72.46 & 74.82 & 43.98 & 78.99 & 71.19 & 75.31 & 43.64 & 87.67 & 78.64 & 81.81 & 38.60 \\
+ & $\Delta$ & \redbf{5.43} & \redbf{5.18} & \redbf{3.39} & \redbf{-1.44} & \redbf{5.32} & \redbf{4.22} & \redbf{3.08} & \redbf{-1.95} & \redbf{38.56} & \redbf{26.31} & \redbf{16.27} & \redbf{-19.72} \\
+
+% --- MIRT Model ---
+\rowcolor{mybgc}& baseline & 54.51 & 53.27 & 53.01 & 64.02 & 70.70 & 65.33 & 67.91 & 48.91 & 73.50 & 66.70 & 68.82 & 53.76 \\
+\rowcolor{mybgc} & \mymethod\ & 80.75 & 72.88 & 72.56 & 42.63 & 78.17 & 71.10 & 72.82 & 44.08 & 86.92 & 80.13 & 81.36 & 38.28 \\
+\rowcolor{mybgc} \multirow{-3}{*}{MIRT} & $\Delta$ & \redbf{26.24} & \redbf{19.61} & \redbf{19.55} & \redbf{-21.39} & \redbf{7.47} & \redbf{5.77} & \redbf{4.91} & \redbf{-4.83} & \redbf{13.42} & \redbf{13.43} & \redbf{12.54} & \redbf{-15.48} \\
+
+% --- DINA Model ---
+\multirow{3}{*}{DINA} & baseline & 75.23 & 53.54 & 21.45 & 51.85 & 68.69 & 48.30 & 22.31 & 53.84 & 58.82 & 54.85 & 36.32 & 56.85 \\
+ & \mymethod\ & 77.31 & 57.40 & 33.96 & 50.20 & 72.48 & 59.88 & 54.11 & 51.64 & 86.18 & 75.56 & 73.43 & 42.73 \\
+ & $\Delta$ & \redbf{2.08} & \redbf{3.86} & \redbf{12.51} & \redbf{-1.65} & \redbf{3.79} & \redbf{11.58} & \redbf{31.80} & \redbf{-2.20} & \redbf{27.36} & \redbf{20.71} & \redbf{37.11} & \redbf{-14.12} \\
+
+% --- NCDM Model ---
+\rowcolor{mybgc}& baseline & 79.32 & 71.23 & 74.19 & 43.74 & 78.64 & 70.97 & 73.05 & 44.11 & 88.81 & 81.53 & 83.21 & 37.61 \\
+\rowcolor{mybgc} & \mymethod\ & 80.85 & 72.13 & 75.12 & 43.92 & 79.15 & 71.18 & 74.42 & 43.48 & 89.80 & 84.79 & 86.31 & 35.57 \\
+\rowcolor{mybgc} \multirow{-3}{*}{NCDM} & $\Delta$ & \redbf{1.53} & \redbf{0.90} & \redbf{0.93} & \green{0.18} & \redbf{0.51} & \redbf{0.21} & \redbf{1.37} & \redbf{-0.63} & \redbf{0.99} & \redbf{3.26} & \redbf{3.10} & \redbf{-2.04}  \\
+
+% --- KaNCD Model ---
+\multirow{3}{*}{KaNCD} & baseline & 79.74 & 71.47 & 73.72 & 42.74 & 79.20 & 71.26 & 73.33 & 43.10 & 89.86 & 83.40 & 84.28 & 35.27 \\
+ & \mymethod\ & 81.25 & 72.89 & 73.43 & 42.05 & 79.34 & 71.64 & 74.31 & 42.94 & 90.29 & 83.02 & 85.30 & 34.78 \\
+ & $\Delta$ & \redbf{1.51} & \redbf{1.42} & \green{-0.29} & \redbf{-0.69} & \redbf{0.14} & \redbf{0.38} & \redbf{0.98} & \redbf{-0.16} & \redbf{0.43} & \green{-0.38} & \redbf{1.02} & \redbf{-0.49}  \\
+
+% --- CDND Model ---
+\rowcolor{mybgc}& baseline & 80.77 & 72.46 & 73.28 & 42.13 & 79.82 & 71.92 & 73.58 & 42.88 & 89.71 & 81.86 & 82.53 & 35.94 \\
+\rowcolor{mybgc} & \mymethod\ & 81.40 & 73.27 & 74.63 & 41.88 & 80.39 & 72.55 & 74.62 & 42.57 & 90.64 & 84.79 & 86.31 & 34.71 \\
+\rowcolor{mybgc} \multirow{-3}{*}{CDND} & $\Delta$ & \redbf{0.63} & \redbf{0.81} & \redbf{1.35} & \redbf{-0.25} & \redbf{0.57} & \redbf{0.63} & \redbf{1.04} & \redbf{-0.31} & \redbf{0.93} & \redbf{2.93} & \redbf{3.78} & \redbf{-1.23} \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
+\begin{table}[t]
+\centering
+\caption{Performance comparisons (\%) under enriched scenario. $\Delta$ denotes the performance change of \mymethod\ over the baseline. \redbf{Red bold} and \green{green} indicate improvement and degradation, respectively. $\uparrow$/$\downarrow$ indicates that higher/lower is better.}
+\label{tab:comparison_exp2}
+\setlength{\tabcolsep}{10pt}
+\renewcommand\arraystretch{1}
+\resizebox{0.8\columnwidth}{!}{
+\begin{tabular}{cc|rrrr}
+\toprule
+\multicolumn{2}{c|}{Model} & AUC$\uparrow$ & ACC$\uparrow$ & F1$\uparrow$ & RMSE$\downarrow$ \\ \midrule
+% \multicolumn{5}{c}{\cellcolor{gray!15}\textit{Pairwise Comparison (Vanilla vs. Ours)}} \\ \midrule
+&baseline & 69.47 & 70.46 & 81.71 & 45.39 \\
+& \mymethod   & 91.38 & 85.87 & 90.54 & 32.22 \\
+\multirow{-3}{*}{IRT}& $\Delta$    & \redbf{21.91} & \redbf{17.35} & \redbf{11.27} & \redbf{-13.15}\\
+\rowcolor{mybgc}&baseline & 65.68 & 65.56 & 74.51 & 49.23 \\
+\rowcolor{mybgc} & \mymethod   & 97.05 & 90.71 & 93.32 & 24.82 \\
+\rowcolor{mybgc}\multirow{-3}{*}{MIRT}& $\Delta$    & \redbf{31.37} & \redbf{25.15} & \redbf{18.81} & \redbf{-24.41}\\
+&baseline & 58.89 & 53.10 & 59.57 & 55.15 \\
+& \mymethod   & 96.26 & 87.47 & 90.79 & 29.01 \\
+\multirow{-3}{*}{DINA}& $\Delta$& \redbf{37.37} & \redbf{34.37} & \redbf{31.22} & \redbf{-26.14}\\
+\rowcolor{mybgc}&baseline & 75.22 & 71.75 & 78.65 & 43.77 \\
+\rowcolor{mybgc}&\mymethod & 94.78 & 89.61 & 92.75 & 27.13 \\ 
+\rowcolor{mybgc}\multirow{-3}{*}{NCDM}& $\Delta$    & \redbf{19.56} & \redbf{17.86} & \redbf{14.10} & \redbf{-16.64}\\
+&baseline & 76.80 & 73.61 & 81.23 & 42.21 \\
+& \mymethod   & 96.80 & 90.81 & 93.51 & 24.88 \\
+\multirow{-3}{*}{KaNCD}& $\Delta$& \redbf{20.00} & \redbf{17.20} & \redbf{12.28} & \redbf{-17.33}\\
+\rowcolor{mybgc}&baseline & 70.09 & 68.55 & 77.46 & 45.17 \\
+\rowcolor{mybgc}& \mymethod   & 96.75 & 91.47 & 94.01 & 26.45 \\
+\rowcolor{mybgc}\multirow{-3}{*}{CDND}& $\Delta$    & \redbf{15.94} & \redbf{16.64} & \redbf{12.80} & \redbf{-17.36}\\
+&baseline& 76.10 & 71.95 & 81.59 & 43.38 \\
+& \mymethod   & 90.01 & 85.88 & 89.88 & 33.39 \\
+\multirow{-3}{*}{KCSCD}& $\Delta$    & \redbf{13.91} & \redbf{13.93} & \redbf{8.29}  & \redbf{-9.99}\\
+% &KCD & 0.7509 & 0.7242 & 0.7968 & 0.4364 \\
+% &\textbf{\mymethod} & \textbf{0.9491} & \textbf{0.8862} & \textbf{0.9176} & \textbf{0.2876} \\ 
+% \multirow{-3}{*}{NCDM}&&&&&\\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+
+
+\subsection{Comparison Experiments}
+
+Table~\ref{tab:comparison_exp1} reports the performance comparison on six benchmark datasets under the standard scenario. As can be observed, \mymethod\ consistently achieves superior or competitive performance against all baseline models across nearly all evaluation metrics and datasets. Notably, the performance gains are especially pronounced for traditional psychometrics-based models such as IRT, MIRT, and DINA, which lack inherent capacity for capturing complex behavioral dynamics. Even for state-of-the-art DL-based models such as KaNCD, CDND, and KCSCD, \mymethod\ consistently yields performance improvements across most evaluation metrics, demonstrating its broad applicability and architectural compatibility. 
+Table~\ref{tab:comparison_exp2} presents results on ASSIST09 dataset under the enriched scenario. Under this condition, all baseline models exhibit substantially greater performance improvements, especially for the traditional psychometrics-based models. These results demonstrate that direct access to behavioral proxies enables our dual-stream architecture to sharply distinguish true conceptual deficits from procedural unfamiliarity or incidental slips.
+
+Overall, across both standard and enriched scenarios, the comparison results consistently support the hypothesis that decoupling mastery from fluency provides a universally beneficial enhancement for cognitive diagnosis.
+
+% We first evaluated the models on the standard, strict versions of the datasets, relying exclusively on traditional interaction logs (i.e., attempting to extract latent behavioral signatures dynamically without manually injecting pre-calculated proxy features during preprocessing). This serves as a rigorous stress test to observe if our dual-stream architecture can inherently regularize standard sequential data. The comprehensive, sweeping results are divided into Table \ref{tab:main_results_part1} and Table \ref{tab:main_results_part2}.
+
+% A deep, systematic dive into these tables reveals a striking and universally consistent pattern: \textit{every single baseline model experiences a notable, mathematically significant performance boost when equipped with our fluency module.} 
+
+% For instance, on the exceptionally dense ASSIST17 dataset, the vanilla NCDM achieves a respectable AUC of 0.8764. However, when augmented with our fluency proxy module (\textbf{NCDM+fluency}), the AUC consistently rises to 0.8949, accompanied by a simultaneous, critical drop in RMSE from 0.3183 to 0.3039. This phenomenon is even more pronounced in the classical models. The vanilla IRT inherently struggles with an AUC of 0.6985 on ASSIST09 due to its rigid linear limitations, yet the \textbf{IRT+fluency} variant manages to push this metric significantly to 0.7105, proving that behavioral tracking rescues rigid statistical models.
+
+% Furthermore, the significant reduction in RMSE across all enhanced models confirms that the Fluency module effectively calibrates the model's confidence. By distinguishing between true cognitive failure and mere behavioral slips (e.g., fatigue), it prevents the model from outputting overly confident incorrect predictions. This universal superiority across varied datasets validates our core claim that treating student correctness as a unidimensional cognitive output severely limits predictive potential.
+
+
+
+
+% % Part 1: ASSIST09, ASSIST17, Junyi
+% \begin{table*}[htbp]
+% \centering
+% \caption{Overall performance comparison on Standard Datasets (Part I). The bottom section illustrates the universal enhancements achieved by incorporating our proposed plug-and-play module.}
+% \label{tab:main_results_part1}
+% \resizebox{\textwidth}{!}{
+% \begin{tabular}{@{}l|cccc|cccc|cccc@{}}
+% \toprule
+% \multirow{2}{*}{\textbf{Model}} & \multicolumn{4}{c|}{\textbf{ASSIST09}} & \multicolumn{4}{c|}{\textbf{ASSIST17}} & \multicolumn{4}{c}{\textbf{Junyi}} \\ \cmidrule(l){2-13} 
+%  & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} \\ \midrule
+% \multicolumn{13}{c}{\cellcolor{gray!15}\textbf{Vanilla Baselines}} \\ \midrule
+% IRT & 0.6985 & 0.6903 & 0.7970 & 0.4502 & 0.7764 & 0.8214 & 0.8985 & 0.3564 & 0.6781 & 0.7528 & 0.8544 & 0.4195 \\
+% MIRT & 0.6568 & 0.6556 & 0.7451 & 0.4923 & 0.7343 & 0.7713 & 0.8578 & 0.4327 & 0.6092 & 0.6866 & 0.7937 & 0.5194 \\
+% GDDINA & 0.5889 & 0.5310 & 0.5957 & 0.5515 & 0.6719 & 0.5105 & 0.6343 & 0.4828 & 0.6639 & 0.5563 & 0.6648 & 0.4948 \\
+% NCDM & 0.7522 & 0.7175 & 0.7865 & 0.4377 & 0.8764 & 0.8498 & 0.9102 & 0.3183 & 0.8077 & 0.7976 & 0.8711 & 0.3776 \\
+% KaNCD & 0.7680 & 0.7361 & 0.8123 & 0.4221 & 0.8886 & 0.8596 & 0.9145 & 0.3113 & 0.8128 & 0.8016 & 0.8753 & 0.3738 \\
+% CDND & 0.8059 & 0.7497 & 0.8140 & 0.4478 & 0.9150 & 0.8841 & 0.9299 & 0.2868 & 0.8132 & 0.8056 & 0.8785 & 0.3721 \\
+% KCD & 0.7509 & 0.7242 & 0.7968 & 0.4364 & 0.8766 & 0.8492 & 0.9102 & 0.3185 & 0.8079 & 0.7918 & 0.8649 & 0.3791 \\
+% KCSCD & 0.7610 & 0.7195 & 0.8159 & 0.4338 & 0.8928 & 0.8650 & 0.9203 & 0.3055 & 0.8184 & 0.8057 & 0.8801 & 0.3760 \\ \midrule
+% \multicolumn{13}{c}{\cellcolor{gray!15}\textbf{Enhanced by Our Proposed Module}} \\ \midrule
+% IRT+fluency & 0.7105 & 0.6980 & 0.7935 & 0.4449 & 0.8961 & 0.8660 & 0.9201 & 0.3045 & 0.8038 & 0.7987 & 0.8760 & 0.3798 \\
+% MIRT+fluency & 0.7640 & 0.7310 & 0.8010 & 0.4340 & 0.9070 & 0.8779 & 0.9264 & 0.2961 & 0.7737 & 0.7871 & 0.8642 & 0.3910 \\
+% GDDINA+fluency & 0.7504 & 0.6970 & 0.7731 & 0.4676 & 0.8427 & 0.8030 & 0.8841 & 0.3638 & 0.7834 & 0.7613 & 0.8490 & 0.4177 \\
+% KaNCD+fluency & 0.7708 & 0.7366 & 0.8192 & 0.4218 & 0.8911 & 0.8667 & 0.9211 & 0.3045 & 0.8197 & 0.8005 & 0.8780 & 0.3735 \\
+% CDND+fluency & 0.8096 & 0.7540 & 0.8185 & 0.4470 & 0.9155 & 0.8831 & 0.9295 & 0.2880 & 0.8276 & 0.8172 & 0.8868 & 0.3621 \\
+% KCD+channel & 0.7669 & 0.7249 & 0.7914 & 0.4285 & 0.8939 & 0.8664 & 0.9202 & 0.3055 & 0.8234 & 0.8075 & 0.8781 & 0.3696 \\
+% KCSCD+channel & 0.7651 & 0.7164 & 0.8160 & 0.4244 & 0.9003 & 0.8699 & 0.9230 & 0.3015 & 0.8200 & 0.8067 & 0.8796 & 0.3728 \\
+% \textbf{NCDM+fluency (Ours)} & \textbf{0.7693} & \textbf{0.7367} & \textbf{0.8146} & \textbf{0.4230} & \textbf{0.8949} & \textbf{0.8680} & \textbf{0.9225} & \textbf{0.3039} & \textbf{0.8229} & \textbf{0.8057} & \textbf{0.8795} & \textbf{0.3737} \\ \bottomrule
+% \end{tabular}
+% }
+% \end{table*}
+
+% % Part 2: Math1, Math2, FrcSub
+% \begin{table*}[htbp]
+% \centering
+% \caption{Overall performance comparison on Standard Datasets (Part II).}
+% \label{tab:main_results_part2}
+% \resizebox{\textwidth}{!}{
+% \begin{tabular}{@{}l|cccc|cccc|cccc@{}}
+% \toprule
+% \multirow{2}{*}{\textbf{Model}} & \multicolumn{4}{c|}{\textbf{Math1}} & \multicolumn{4}{c|}{\textbf{Math2}} & \multicolumn{4}{c}{\textbf{FrcSub}} \\ \cmidrule(l){2-13} 
+%  & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} & \textbf{AUC} & \textbf{ACC} & \textbf{F1} & \textbf{RMSE} \\ \midrule
+% \multicolumn{13}{c}{\cellcolor{gray!15}\textbf{Vanilla Baselines}} \\ \midrule
+% IRT & 0.7448 & 0.6728 & 0.7143 & 0.4542 & 0.7367 & 0.6697 & 0.7223 & 0.4559 & 0.4911 & 0.5233 & 0.6554 & 0.5832 \\
+% MIRT & 0.5451 & 0.5327 & 0.5301 & 0.6402 & 0.7070 & 0.6533 & 0.6791 & 0.4891 & 0.7350 & 0.6670 & 0.6882 & 0.5376 \\
+% GDDINA & 0.7523 & 0.5354 & 0.2145 & 0.5185 & 0.6869 & 0.4830 & 0.2231 & 0.5384 & 0.5882 & 0.5485 & 0.3632 & 0.5685 \\
+% NCDM & 0.7932 & 0.7123 & 0.7419 & 0.4374 & 0.7864 & 0.7097 & 0.7305 & 0.0555 & 0.8881 & 0.8153 & 0.8321 & 0.3761 \\
+% KaNCD & 0.7974 & 0.7147 & 0.7372 & 0.4274 & 0.7920 & 0.7126 & 0.7333 & 0.4310 & 0.8986 & 0.8340 & 0.8428 & 0.3527 \\
+% CDND & 0.8077 & 0.7246 & 0.7328 & 0.4213 & 0.7982 & 0.7192 & 0.7358 & 0.4288 & 0.8971 & 0.8186 & 0.8253 & 0.3594 \\ \midrule
+% \multicolumn{13}{c}{\cellcolor{gray!15}\textbf{Enhanced by Our Proposed Module}} \\ \midrule
+% IRT+fluency & 0.7991 & 0.7246 & 0.7482 & 0.4398 & 0.7899 & 0.7119 & 0.7531 & 0.4364 & 0.8767 & 0.7864 & 0.8181 & 0.3860 \\
+% MIRT+fluency & 0.8075 & 0.7288 & 0.7256 & 0.4263 & 0.7817 & 0.7110 & 0.7282 & 0.4408 & 0.8692 & 0.8013 & 0.8136 & 0.3828 \\
+% GDDINA+fluency & 0.7731 & 0.5740 & 0.3396 & 0.5020 & 0.7248 & 0.5988 & 0.5411 & 0.5164 & 0.8618 & 0.7556 & 0.7343 & 0.4273 \\
+% KaNCD+fluency & 0.8125 & 0.7289 & 0.7343 & 0.4205 & 0.7934 & 0.7164 & 0.7431 & 0.4294 & 0.9029 & 0.8302 & 0.8530 & 0.3478 \\
+% CDND+fluency & 0.8140 & 0.7327 & 0.7463 & 0.4188 & 0.8039 & 0.7255 & 0.7462 & 0.4257 & 0.9064 & 0.8479 & 0.8631 & 0.3471 \\
+% \textbf{NCDM+fluency (Ours)} & \textbf{0.8085} & \textbf{0.7213} & \textbf{0.7512} & \textbf{0.4392} & \textbf{0.7915} & \textbf{0.7118} & \textbf{0.7442} & \textbf{0.4348} & \textbf{0.8980} & \textbf{0.8479} & \textbf{0.8631} & \textbf{0.3557} \\ \bottomrule
+% \end{tabular}
+% }
+% \end{table*}
+
+% \subsection{Generality Test on the Enriched Scenario (RQ2)}
+% To explicitly and undeniably address \textbf{RQ2}, we present the results of the \textit{Enriched Scenario} on the ASSIST09 dataset in Table \ref{tab:enriched_assist09}. In this enriched data scenario, we explicitly feed the mathematically formulated proxy parameters (\textit{Opportunity, Accuracy Prior, Stability}) directly into the behavioral module, fully activating the architecture's capacity without relying on implicit feature extraction.
+
+% \subsubsection{The Transformative Power of Behavioral Proxies:}
+% The pairwise comparisons detailed in Table \ref{tab:enriched_assist09} are exceptionally illuminating. When the enhanced models are permitted to fully leverage the explicit behavioral inputs, the performance leap is nothing short of transformative. The AUC of \textbf{NCDM+fluency} surges explosively from its baseline value of 0.7522 to an impressive 0.9478, indicating a profound shift in diagnostic capability. 
+
+% Similarly, the classical MIRT baseline experiences a catastrophic failure in standard sparse settings (achieving an AUC of only 0.6568), but when structurally enhanced and explicitly fed with our proxy features (\textbf{MIRT+fluency}), its AUC skyrockets to a remarkable 0.9705. These results unequivocally and quantitatively prove our core pedagogical hypothesis: evaluating a student's underlying cognitive state purely based on isolated binary correctness is a fundamentally flawed paradigm. Explicitly modeling historical accuracy and practice opportunity provides an indispensable, mathematically rigorous regularization effect. It forces the deep learning architecture to recognize the critical difference between a fundamental conceptual deficit and a simple lack of practice, thereby shrinking the overall prediction RMSE drastically across all tested variants.
+
+
+
+\subsection{Hyperparameter Sensitivity Analysis}
+To systematically evaluate the impact of the learning rate on our framework, we conduct a sensitivity analysis. Figure \ref{fig:lr_sensitivity} illustrates the effect of varying the learning rate on the overall AUC. An excessively small learning rate leads to slow convergence, while an overly large one causes unstable training. As shown, the model achieves peak AUC of 0.9579 at lr=0.0008, with performance degrading monotonically as the learning rate deviates from this optimum.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.58\columnwidth]{fig1_lr.png}
+\caption{Learning rate sensitivity analysis. Optimal AUC of 0.9579 at lr=0.0008.}
+\label{fig:lr_sensitivity}
+\end{figure}
+
+\subsection{Ablation Study}
+To deeply and rigorously evaluate the specific architectural contribution of each internal component, we systematically deconstructed our framework into three hierarchical variants, mathematically defined as follows:
+\begin{itemize}
+    \item \textbf{L1 (Only Fluency):} Strips away both the MTL behavioral encoder and the dynamic fusion gate. It treats "fluency" merely as a static, learnable embedding vector $E_{flu}$ without proxy constraints: $\hat{y} = \sigma(\text{MLP}(x_{mastery}) + W_{flu} E_{flu})$.
+    \item \textbf{L2 (Fluency + Behavior):} Re-introduces the explicit behavioral proxy features and MTL regularization, but lacks the dynamic fusion gate, forcing the network to rely on simple static concatenation: $\hat{y} = \sigma(\text{MLP}([x_{mastery} \parallel z]))$.
+    \item \textbf{L3 (Full \mymethod):} The complete, state-of-the-art framework equipped with both the structured MTL encoder and the adaptive dynamic fusion gate as mathematically defined in Equations 10, 11, and 12.
+\end{itemize}
+
+As thoroughly detailed in Table \ref{tab:ablation}, the NCDM baseline (L0) yields a poor AUC of 0.6923, indicating that raw correctness prediction alone is insufficient for accurate diagnosis. Adding a simple fluency embedding (L1) provides only marginal improvement (0.6977). Incorporating explicit behavioral proxy features without the dynamic gate (L2) raises AUC to 0.7178. However, the definitive leap to 0.9626 is achieved only with the full framework (L3), demonstrating that the adaptive fusion gate is indispensable. 
+
+Furthermore, Figure \ref{fig:ablation_bar} provides a clear visual comparison of the performance metrics across all six variants, highlighting the step-wise gains achieved. While capturing behavioral features is undeniably important, the \textit{method} of fusing them with cognitive mastery is the true architectural bottleneck. Static fusion treats all questions identically, leading to severe feature dilution; the dynamic fusion gate successfully learns an item-aware routing mechanism.
+
+\begin{table}[t]
+\centering
+\caption{Hierarchical Ablation Study on Model Architecture.}
+\label{tab:ablation}
+\resizebox{0.85\columnwidth}{!}{
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model Variant} & \textbf{Gate Config} & \textbf{AUC} & \textbf{Accuracy} & \textbf{RMSE} \\ \midrule
+L0: NCDM Baseline      & --                   & 0.6923       & 0.7000            & 0.4517 \\
+L1: Only Fluency       & w/o Gate             & 0.6977       & 0.8550            & 0.3222 \\
+L2: Fluency + Behavior & w/o Gate             & 0.7178       & 0.8300            & 0.3222 \\
+\textbf{L3: Full Model} & \textbf{w/ Gate}     & \textbf{0.9626} & \textbf{0.8780} & \textbf{0.2645} \\ \bottomrule
+\end{tabular}
+}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.58\columnwidth]{fig4_ablation.png}
+\caption{Performance comparison of different model variants in the ablation study. The full \mymethod\ framework (L3) achieves the highest AUC and Accuracy while minimizing the RMSE through its dynamic gating mechanism.}
+\label{fig:ablation_bar}
+\end{figure}
+
+
+\subsection{Case Study and Interpretability Analysis (RQ3)}
+A primary, overriding motivation for developing the \mymethod\ framework is to transition EDM from black-box correctness predictions to highly transparent, high-resolution cognitive profiling. To conclusively address \textbf{RQ3}, we conduct a qualitative, visual analysis focusing on the decoupling of cognitive states and the internal mathematical activation of the dynamic fusion gate.
+
+\subsubsection{Decoupling Mastery and Fluency (Radar Profiles):}
+Traditional CDMs structurally output a single scalar value per knowledge point. Figure \ref{fig:radar_case} illustrates a comparative diagnostic profile for two specific students (Student\#1 and Student\#2) across five distinct knowledge points (labeled A to E, representing domains such as Arithmetic, Fractions, Geometry, Algebra, and Probability). 
+
+As clearly shown in Figure \ref{fig:radar_case}(a), the standard NCDM evaluates Student\#1 as strictly and globally superior to Student\#2 across all domains. From a practical pedagogical standpoint, this flat assessment would prompt an educator or an ITS algorithm to blindly assign extensive remedial conceptual lectures to Student\#2. 
+
+However, when these identical interaction logs are evaluated through our decoupled \mymethod\ framework (Figure \ref{fig:radar_case}b), a highly nuanced, actionable reality emerges. The model successfully decouples the profile, revealing that Student\#1 and Student\#2 actually share highly comparable, fundamental \textit{Mastery} levels on core concepts (particularly domains A, B, and C). The severe performance disparity observed originally stems almost entirely from the \textit{Fluency} dimension (the procedural inability to execute the task quickly under testing conditions). In a real-world tutoring system, this dictates an entirely different, optimized intervention: Student\#2 requires targeted, time-constrained practice exercises to build problem-solving fluency, rather than enduring redundant theoretical retraining.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{radar_charts_mixed_KP.jpg}
+\caption{Comparative diagnostic profiles. (a) Standard NCDM yields a single, entangled mastery metric. (b) \mymethod\ successfully decouples the cognitive state, revealing nuanced differences in behavioral fluency despite similar conceptual mastery.}
+\label{fig:radar_case}
+\end{figure}
+
+\subsubsection{Dynamic Gate Adaptation (Numerical Walkthrough \& Bar Charts):}
+Figure \ref{fig:bar_case} vividly illustrates the model's internal routing mechanism for two distinct students across two distinct knowledge points (KP\#79 and KP\#82). The left panel explicitly demonstrates that the gate value is highly variable and entirely item-aware. The dynamic gate essentially functions as an intelligent cognitive attention mechanism. 
+
+To provide a concrete numerical walkthrough: consider Student\#2827 on KP\#79 (a highly procedural task, e.g., "Simplifying Fractions"). The model extracts a latent fluency score $z_{flu} = 0.21$ (indicating poor procedural familiarity). Because the question is highly procedural, the dynamic gate $g$ activates at a high level of $0.85$. Following Equation 11, the residual adjustment applied to the logit is mathematically $\gamma \cdot 0.85 \cdot (0.21 - 0.5) \cdot 4.0 \approx -0.98$. This mathematically executes a sharp, severe penalty on the final prediction logit (as seen in the deep orange bar extending downwards in the right panel).
+
+Conversely, for KP\#82 (a deep conceptual task, e.g., "Understanding Limits"), the gate activation drops significantly ($\approx 0.3$), dampening the $(flu-0.5)$ penalty and forcing the model to disregard procedural slips and rely heavily on the fundamental cognitive mastery branch. This definitively proves that \mymethod\ effectively learns a self-adaptive routing strategy.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{bar_charts_mixed_KP.jpg}
+\caption{Visualization of Dynamic Gate Adaptation. The left panel shows the dynamic gating values ($g$). The right panel illustrates how the gate dynamically scales the prediction logits based on whether the question tests a ``Core'' or ``Refined Core'' concept.}
+\label{fig:bar_case}
+\end{figure}
+
+\section{Conclusion}
+
+In this paper, we proposed a novel and highly interpretable Multi-Task Learning framework that successfully bridges the historical gap between deep cognitive modeling and practical behavioral dynamics. To directly overcome the critical limitations of traditional unidimensional models, our framework explicitly decouples students' cognitive profiles into distinct \textit{Mastery} and \textit{Fluency} dimensions. By introducing key behavioral proxy features (Opportunity, Accuracy Prior, Stability) and engineering an intelligent dynamic fusion gate, our plug-and-play module universally and significantly enhances the predictive performance of all tested baseline models across diverse real-world educational datasets. {\color{blue}Extensive experiments on real-world datasets clearly showed the effectiveness and extendibility of our RCD framework.}
+% Future work will explore extending this decoupled framework to sequential \textit{Knowledge Tracing} (KT) architectures to model temporal dynamics and integrate richer multimodal behavioral signals, such as eye-tracking or video-based engagement metrics.
+
+\begin{credits}
+\subsubsection{\discintname}
+The authors have no competing interests to declare that are relevant to the content of this article.
+\end{credits}
+
+% ---- Bibliography ----
+
+\bibliographystyle{splncs04} 
+\bibliography{refs}
+
+% \begin{thebibliography}{99}
+
+% % ==================================================
+% % 1. 经典预测与推荐模型
+% % ==================================================
+% \bibitem{thai2010recommender}
+% Nguyen Thai-Nghe, Lucas Drumond, Artus Krohn-Grimberghe, and Lars Schmidt-Thieme, ``Recommender system for predicting student performance,'' \textit{Procedia Computer Science}, vol. 1, no. 2, pp. 2811--2819, 2010.
+
+% % ==================================================
+% % 2. 传统统计学与心理测量学基线 (Baselines: IRT, MIRT, DINA)
+% % ==================================================
+% \bibitem{fan1998item}
+% Xitao Fan, ``Item response theory and classical test theory: An empirical comparison of their item/person statistics,'' \textit{Educational and Psychological Measurement}, vol. 58, no. 3, pp. 357--381, 1998.
+
+% \bibitem{junker2001cognitive}
+% Brian W. Junker and Klaas Sijtsma, ``Cognitive assessment models with few assumptions, and connections with nonparametric item response theory,'' \textit{Applied Psychological Measurement}, vol. 25, no. 3, pp. 258--272, 2001.
+
+% \bibitem{reckase2009multidimensional}
+% Mark D. Reckase, ``Multidimensional item response theory models,'' in \textit{Multidimensional Item Response Theory}, Springer, pp. 79--112, 2009.
+
+% \bibitem{delatorre2009dina}
+% Jimmy De La Torre, ``Dina model and parameter estimation: A didactic,'' \textit{Journal of Educational and Behavioral Statistics}, vol. 34, no. 1, pp. 115--130, 2009.
+
+% \bibitem{delatorre2011generalized}
+% Jimmy De La Torre, ``The generalized dina model framework,'' \textit{Psychometrika}, vol. 76, no. 2, pp. 179--199, 2011.
+
+% \bibitem{linden2000computerized}
+% Wim J. Van der Linden, Cees A. W. Glas, et al., \textit{Computerized adaptive testing: Theory and practice}, Springer, vol. 13, 2000.
+
+% % ==================================================
+% % 3. 深度学习与深度认知诊断基线 (Baselines: NCDM, NeuralCD, DKT)
+% % ==================================================
+% \bibitem{piech2015deep}
+% Chris Piech, Jonathan Bassen, Jonathan Huang, Surya Ganguli, Mehran Sahami, Leonidas J. Guibas, and Jascha Sohl-Dickstein, ``Deep knowledge tracing,'' \textit{Advances in Neural Information Processing Systems}, vol. 28, 2015.
+
+% \bibitem{liu2018fuzzy}
+% Qi Liu, Runze Wu, Enhong Chen, Guandong Xu, Yu Su, Zhigang Chen, and Guoping Hu, ``Fuzzy cognitive diagnosis for modelling examinee performance,'' \textit{ACM Transactions on Intelligent Systems and Technology (TIST)}, vol. 9, no. 4, pp. 1--26, 2018.
+
+% \bibitem{wang2020neural}
+% Fei Wang, Qi Liu, Enhong Chen, Zhenya Huang, Yuying Chen, Yu Yin, Zai Huang, and Shijin Wang, ``Neural cognitive diagnosis for intelligent education systems,'' in \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, vol. 34, no. 04, pp. 6153--6161, 2020.
+
+% \bibitem{wang2022neuralcd}
+% Fei Wang, Qi Liu, Enhong Chen, Zhenya Huang, Yu Yin, Shijin Wang, and Yu Su, ``Neuralcd: a general framework for cognitive diagnosis,'' \textit{IEEE Transactions on Knowledge and Data Engineering}, vol. 35, no. 8, pp. 8312--8327, 2022.
+
+% \bibitem{wang2023dynamic}
+% Fei Wang, Zhenya Huang, Qi Liu, Enhong Chen, Yu Yin, Jianhui Ma, and Shijin Wang, ``Dynamic cognitive diagnosis: An educational priors-enhanced deep knowledge tracing perspective,'' \textit{IEEE Transactions on Learning Technologies}, vol. 16, no. 3, pp. 306--323, 2023.
+
+% \bibitem{wang2023review}
+% Yu Wang, Mengxia Zhu, Shanghui Yang, Xuesong Lu, and Aoying Zhou, ``Review and performance comparison of deep knowledge tracing models,'' \textit{Journal of Software}, vol. 34, no. 3, pp. 1365--1395, 2023.
+
+% % ==================================================
+% % 4. 行为、情感状态与解耦动态
+% % ==================================================
+% \bibitem{wang2024boosting}
+% Shanshan Wang, Zhen Zeng, Xun Yang, Ke Xu, and Xingyi Zhang, ``Boosting neural cognitive diagnosis with student's affective state modeling,'' in \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, vol. 38, no. 1, pp. 620--627, 2024.
+
+% \bibitem{zhang2025cognitive}
+% Yuhong Zhang, Zhihao Lin, Chenyang Bu, Kui Yu, Xuegang Hu, and Xindong Wu, ``A cognitive diagnosis model with nonlinear dependence between students and exercises,'' \textit{IEEE Transactions on Computational Social Systems}, pp. 1--12, 2025.
+
+% \bibitem{smith1994misconceptions}
+% John P. Smith III, Andrea A. DiSessa, and Jeremy Roschelle, ``Misconceptions reconceived: A constructivist analysis of knowledge in transition,'' \textit{The Journal of the Learning Sciences}, vol. 3, no. 2, pp. 115--163, 1994.
+
+% % ==================================================
+% % 5. 知识追踪的最新图模型与增强框架 (SOTA CDMs 2025/2026)
+% % ==================================================
+% \bibitem{zhang2021gkt}
+% Junrui Zhang, Yun Mo, Changzhi Chen, and Xiaofeng He, ``Gkt-cd: Make cognitive diagnosis model enhanced by graph-based knowledge tracing,'' in \textit{2021 International Joint Conference on Neural Networks (IJCNN)}, IEEE, pp. 1--8, 2021.
+
+% \bibitem{su2022graph}
+% Yu Su, Zeyu Cheng, Jinze Wu, Yanmin Dong, Zhenya Huang, Le Wu, Enhong Chen, Shijin Wang, and Fei Xie, ``Graph-based cognitive diagnosis for intelligent tutoring systems,'' \textit{Knowledge-Based Systems}, vol. 253, p. 109547, 2022.
+
+% \bibitem{zhou2024predictive}
+% Hanqi Zhou, Robert Bamler, Charley Wu, and Alvaro Tejero-Cantero, ``Predictive, scalable and interpretable knowledge tracing on structured domains,'' in \textit{International Conference on Learning Representations}, vol. 2024, pp. 35609--35622, 2024.
+
+% \bibitem{huang2024xkt}
+% Chang-Qin Huang, Qiong-Hao Huang, Xiaodi Huang, Hua Wang, Ming Li, Kwei-Jay Lin, and Yi Chang, ``Xkt: toward explainable knowledge tracing model with cognitive learning theories for questions of multiple knowledge concepts,'' \textit{IEEE Transactions on Knowledge and Data Engineering}, vol. 36, no. 11, pp. 7308--7325, 2024.
+
+% \bibitem{ma2024hd}
+% Haiping Ma, Yong Yang, Chuan Qin, Xiaoshan Yu, Shangshang Yang, Xingyi Zhang, and Hengshu Zhu, ``Hd-kt: advancing robust knowledge tracing via anomalous learning interaction detection,'' in \textit{Proceedings of the ACM Web Conference 2024}, pp. 4479--4488, 2024.
+
+% \bibitem{dong2025knowledge}
+% Zhiang Dong, Jingyuan Chen, and Fei Wu, ``Knowledge is power: Harnessing large language models for enhanced cognitive diagnosis,'' in \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, vol. 39, no. 1, pp. 164--172, 2025.
+
+% \bibitem{yang2025endowing}
+% Shangshang Yang, Linrui Qin, Xiaoshan Yu, Ziwen Wang, Xueming Yan, Haiping Ma, and Ye Tian, ``Endowing interpretability for neural cognitive diagnosis by efficient kolmogorov-arnold networks,'' in \textit{Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence}, pp. 7894--7903, 2025.
+
+% \bibitem{zhao2025multi}
+% Guanhao Zhao, Zhenya Huang, Cheng Cheng, Yan Zhuang, Qingyang Mao, Xin Li, Shijin Wang, and Enhong Chen, ``Multi-perspective consolidation enhanced cognitive diagnosis via conditional diffusion model,'' in \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, vol. 39, no. 1, pp. 1174--1182, 2025.
+
+% \bibitem{zhang2026knowledge}
+% Miao Zhang, Huihuan Li, Lele Zheng, Shunfeng Tan, Chao Yang, Kui Xiao, Zhifang Huang, and Zhifei Li, ``Knowledge concept cold-start approach for cognitive diagnosis,'' \textit{Neurocomputing}, vol. 672, p. 132770, 2026.
+
+% \bibitem{liu2026knowledge}
+% Chengfeng Liu, Jianrui Chen, Zhihui Wang, and Longjiang Guo, ``Knowledge graph-based cognitive learning with multi-fact reasoning,'' \textit{Neural Networks}, p. 108747, 2026.
+
+% \end{thebibliography}
+
+\end{document}
